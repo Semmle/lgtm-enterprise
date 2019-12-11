@@ -1,0 +1,1 @@
+This repository is used for the release of LGTM Enterprise binaries only. There is no source code included.
