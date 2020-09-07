@@ -1,7 +1,6 @@
 # LGTM Enterprise 1.25 CodeQL release notes
 
-Version 1.25 of the Semmle product suite was released on INSERT DATE HERE. 
-It can be downloaded from https://github.com/Semmle/lgtm-enterprise/releases.
+Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed release notes and download archives can be found on https://github.com/Semmle/lgtm-enterprise/releases. The following release notes describe changes to the CodeQL analysis, which is used by LGTM to generate alerts. 
 
 ### Table of contents
   - [Changes to CodeQL](#changes-to-codeql)
