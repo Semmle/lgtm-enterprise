@@ -19,6 +19,7 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
 
 ## Changes to Go analysis
 
+* The query "Command built from user-controlled sources" has been improved to recognize methods from the `syscall` library, which may lead to more alerts.
 * Basic support for the [Go-restful](https://github.com/emicklei/go-restful) HTTP library has been added, which
   may lead to more results from the security queries.
 * Basic support for the [Gorm](https://github.com/go-gorm/gorm) ORM library has been added (specifically, its SQL statement building facilities), which
@@ -30,11 +31,15 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
 * Query "Use of insecure HostKeyCallback implementation" (`go/insecure-hostkeycallback`) is promoted from experimental status. This checks for insecurely omitting SSH host-key verification.
 * Query "Insecure TLS configuration" (`go/insecure-tls`) is promoted from experimental status. This checks for use of insecure SSL/TLS versions and cipher suites.
 * New query "Missing error check" (`go/missing-error-check`) added. This checks for dangerous pointer dereferences when an accompanying error value returned from a call has not been checked.
+* A bug has been fixed that caused the autobuilder to not work on repositories with a `file://` URL as `origin`.
 * The query "Unreachable statement" (`go/unreachable-statement`) now tolerates more unreachable return statements, which can often be required in Go following a function call that cannot return. Newly tolerated statements include `return true`, `return MyStruct{0, true}`, and any return when the return value has type `error`. This eliminates some nuisance results.
 * Taint tracking through `range` statements has been improved, which may cause more results from the security queries.
+* Modeling of the `archive/tar` and `archive/zip` packages has been added, which may lead to more
+  results from the security queries.
 * The query "Open URL redirect" (`go/unvalidated-url-redirection`) now recognizes more problematic fields of `URL` objects, allowing it to flag more results.
 * The query "Clear-text logging of sensitive information" has been improved to recognize more sources of sensitive data, which may lead to more alerts. The query is now also more precise, which may reduce the number of false positives.
 * A bug has been fixed that could cause the analysis not to terminate in the presence of cycles through embedded struct fields.
+* A bug has been fixed that could cause the incorrect analysis of control flow around switch statements.
 * Resolution of method calls through interfaces has been improved, resulting in more precise call-graph information, which in turn may eliminate false positives from the security queries.
 * The query "Reflected cross-site scripting" has been improved to more correctly determine whether
   an HTML mime type will be sniffed, which should lead to more accurate results.
@@ -45,6 +50,7 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
   security queries.
 * Modeling of the `go.mongodb.org/mongo-driver/mongo` package has been added, which may lead to more
   results from the security queries.
+* The query "Uncontrolled data used in network request" is now more precise, which may reduce the number of false positives.
 * A new query "Redundant call to recover" (`go/redundant-recover`) has been added. The query detects calls to `recover` that have no effect.
 * Modeling of the standard `io` library has been improved, which may lead to more results from the
   security queries.
@@ -90,8 +96,8 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
   ```
 * The security pack taint tracking library (`semmle.code.cpp.security.TaintTracking`) now considers that equality checks may block the flow of taint.  This results in fewer false positive results from queries that use this library.
 * The length of a tainted string (such as the return value of a call to `strlen` or `strftime` with tainted parameters) is no longer itself considered tainted by the `models` library.  This leads to fewer false positive results in queries that use any of our taint libraries.
-* The Uncontrolled format string querys (`cpp/tainted-format-string`, `cpp/tainted-format-string-through-global`) are now displayed by default on LGTM
-* Index initializers, of the form `{ [1] = "one" }`, are extracted correctly. Previously, the kind of the
+* The _Uncontrolled format string_ queries (`cpp/tainted-format-string`, `cpp/tainted-format-string-through-global`) are now displayed by default on LGTM.
+* Index initializers, of the form `{ [1] = "one" }`, are extracted correctly. Previously, the _kind_ of the
   expression was incorrect, and the index was not extracted.
 
 ## Changes to C# analysis
@@ -148,8 +154,15 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
     collection-clearing methods such as `System.Collections.Generic.List<T>.Clear()` is now
     also modeled.
 
-# Changes to Java analysis
+## Changes to Java analysis
 
+* The Java autobuilder has been improved to detect more Gradle Java versions.
+* The data-flow library has been improved with more taint flow modeling for the
+  Collections framework and other classes of the JDK. This affects all security
+  queries using data flow and can yield additional results.
+* The data-flow library has been improved with more taint flow modeling for the
+  Spring framework. This affects all security queries using data flow and can
+  yield additional results on project that rely on the Spring framework.
 * The data-flow library has been improved, which affects most security queries by potentially
   adding more results. Flow through methods now takes nested field reads/writes into account.
   For example, the library is able to track flow from `"taint"` to `sink()` via the method
@@ -171,8 +184,20 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
     }
   }
   ```
+* The library has been extended with more support for Java 14 features
+  (`switch` expressions and pattern-matching for `instanceof`).
 
-# Changes to JavaScript analysis
+### Changes to queries
+
+| **Query**                    | **Expected impact**    | **Change**                        |
+|------------------------------|------------------------|-----------------------------------|
+| Hard-coded credential in API call (`java/hardcoded-credential-api-call`) | More results | The query now recognizes the `BasicAWSCredentials` class of the Amazon client SDK library with hardcoded access key/secret key. |
+| Deserialization of user-controlled data (`java/unsafe-deserialization`) | Fewer false positive results | The query no longer reports results using `org.apache.commons.io.serialization.ValidatingObjectInputStream`. |
+| Use of a broken or risky cryptographic algorithm (`java/weak-cryptographic-algorithm`) | More results | The query now recognizes the `MessageDigest.getInstance` method. |
+| Use of a potentially broken or risky cryptographic algorithm (`java/potentially-weak-cryptographic-algorithm`) | More results | The query now recognizes the `MessageDigest.getInstance` method. |
+| Reading from a world writable file (`java/world-writable-file-read`) | More results | The query now recognizes more JDK file operations. |
+
+## Changes to JavaScript analysis
 
 * Support for the following frameworks and libraries has been improved:
   - [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
@@ -213,6 +238,23 @@ Version 1.25 of LGTM Enterprise was released on September 9, 2020. Detailed rele
   - `Expr.flow()` now has a more meaningful result for destructuring patterns. Previously this node was disconnected from the data flow graph. Now it represents the values being destructured by the pattern.
 * The global data-flow and taint-tracking libraries now model indirect parameter accesses through the `arguments` object in some cases, which may lead to additional results from some of the security queries, particularly "Prototype pollution in utility function".
 * The predicates `Type.getProperty()` and variants of `Type.getMethod()` have been deprecated due to lack of use-cases. Looking up a named property of a static type is no longer supported, favoring faster extraction times instead.
+
+### New queries
+
+| **Query**                                                                       | **Tags**                                                          | **Purpose**                                                                                                                                                                            |
+|---------------------------------------------------------------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| DOM text reinterpreted as HTML (`js/xss-through-dom`) | security, external/cwe/cwe-079, external/cwe/cwe-116 | Highlights potential XSS vulnerabilities where existing text from the DOM is used as HTML. Results are shown on LGTM by default. |
+| Incomplete HTML attribute sanitization (`js/incomplete-html-attribute-sanitization`) | security, external/cwe/cwe-20, external/cwe/cwe-079, external/cwe/cwe-116 | Highlights potential XSS vulnerabilities due to incomplete sanitization of HTML meta-characters. Results are shown on LGTM by default. |
+| Unsafe expansion of self-closing HTML tag (`js/unsafe-html-expansion`) | security, external/cwe/cwe-079, external/cwe/cwe-116 | Highlights potential XSS vulnerabilities caused by unsafe expansion of self-closing HTML tags. |
+| Unsafe shell command constructed from library input (`js/shell-command-constructed-from-input`) | correctness, security, external/cwe/cwe-078, external/cwe/cwe-088 | Highlights potential command injections due to a shell command being constructed from library inputs. Results are shown on LGTM by default. |
+| Download of sensitive file through insecure connection (`js/insecure-download`) | security, external/cwe/cwe-829 | Highlights downloads of sensitive files through an unencrypted protocol. Results are shown on LGTM by default. |
+| Exposure of private files (`js/exposure-of-private-files`) | security, external/cwe/cwe-200 | Highlights servers that serve private files. Results are shown on LGTM by default. |
+| Creating biased random numbers from a cryptographically secure source (`js/biased-cryptographic-random`) | security, external/cwe/cwe-327 | Highlights mathematical operations on cryptographically secure numbers that can create biased results. Results are shown on LGTM by default. |
+| Storage of sensitive information in build artifact (`js/build-artifact-leak`) | security, external/cwe/cwe-312 | Highlights storage of sensitive information in build artifacts. Results are shown on LGTM by default. |
+| Improper code sanitization (`js/bad-code-sanitization`) | security, external/cwe/cwe-094, external/cwe/cwe-079, external/cwe/cwe-116 | Highlights string concatenation where code is constructed without proper sanitization. Results are shown on LGTM by default. |
+| Disabling certificate validation (`js/disabling-certificate-validation`) | security, external/cwe-295 | Highlights locations where SSL certificate validation is disabled. Results are shown on LGTM by default. | 
+| Incomplete multi-character sanitization (`js/incomplete-multi-character-sanitization`) | correctness, security, external/cwe/cwe-20, external/cwe/cwe-116 | Highlights sanitizers that fail to remove dangerous substrings completely. Results are shown on LGTM by default. |
+
 
 ### Changes to queries
 
@@ -264,3 +306,9 @@ The following low-precision queries are no longer run by default on LGTM (their 
 ## Changes to Python analysis
 
 * Importing `semmle.python.web.HttpRequest` will no longer import `UntrustedStringKind` transitively. `UntrustedStringKind` is the most commonly used non-abstract subclass of `ExternalStringKind`. If not imported (by one mean or another), taint-tracking queries that concern `ExternalStringKind` will not produce any results. Please ensure such queries contain an explicit import (`import semmle.python.security.strings.Untrusted`).
+* Added model of taint sources for HTTP servers using `http.server`.
+* Added taint modeling of routed parameters in Flask.
+* Improved modeling of built-in methods on strings for taint tracking.
+* Improved classification of test files.
+* New class `BoundMethodValue` exposing information about a bound method.
+* The query `py/command-line-injection` now recognizes command execution with the `fabric` and `invoke` Python libraries.
